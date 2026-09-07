@@ -40,7 +40,7 @@
 - **用途**: 看监测看板当前快照、性价比首选、最便宜、最近告警。
 - **关键出参**: `agent_summary`、`snapshot`、`best`、`cheapest`、`alerts`。
 
-`POST /api/scan` 不挂到插件（耗 SerpAPI 额度、偏运维）；请在网页或 `manage.py scan` 触发。
+`POST /api/scan` 不挂到插件默认工具（耗额度）。网页会启动异步 job（按日期×航线拆分），用 `GET /api/scan/<id>` 查进度，失败可 `POST .../retry`，可 `.../cancel`。
 
 ---
 

@@ -49,8 +49,27 @@ class SerpApiProvider:
             for origin in cfg.routes.origins:
                 for dest in cfg.routes.destinations:
                     for day in dates:
-                        offers.extend(self._search_one(client, cfg, origin, dest, day))
+                        offers.extend(self.search_day(cfg, origin, dest, day, client=client))
         return offers
+
+    def search_day(
+        self,
+        cfg: AppConfig,
+        origin: str,
+        dest: str,
+        day: date,
+        client: httpx.Client | None = None,
+    ) -> list[FlightOfferDTO]:
+        """One origin/dest/date unit — used by progressive ScanJob runner."""
+        if not self.api_key:
+            raise RuntimeError("未配置 SERPAPI_API_KEY，请到 https://serpapi.com 注册免费 Key")
+        owns_client = client is None
+        http = client or httpx.Client(timeout=60)
+        try:
+            return self._search_one(http, cfg, origin, dest, day)
+        finally:
+            if owns_client:
+                http.close()
 
     def attach_booking_links(
         self,

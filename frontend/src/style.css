@@ -197,6 +197,51 @@ button:disabled { opacity: 0.55; cursor: wait; }
   margin: 18px 0;
 }
 
+.monitor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.scan-progress .progress-track {
+  height: 10px;
+  border-radius: 999px;
+  background: #10182a;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.scan-progress .progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), var(--gold-2));
+  transition: width 0.35s ease;
+}
+
+.task-list {
+  display: grid;
+  gap: 6px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.task-row {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr 1.2fr;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #10182a;
+}
+
+.task-row.running { color: var(--gold-2); }
+.task-row.succeeded { color: var(--good); }
+.task-row.failed { color: #ff8f8f; }
+.task-row.cancelled { opacity: 0.6; }
+
+
 .chip {
   background: transparent;
   color: var(--ink);

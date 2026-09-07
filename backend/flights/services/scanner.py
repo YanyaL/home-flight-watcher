@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from django.db.models import Min
 
-from flights.models import Alert, FlightOfferRecord, ScanSnapshot
+from flights.models import Alert, FlightOfferRecord, ScanJob, ScanSnapshot
 
 from .airports import city_of, label_of
 from .alerts import detect_alerts, notify
@@ -75,6 +75,8 @@ def dashboard_payload() -> dict:
         }
         for item in Alert.objects.all()[:20]
     ]
+    from .scan_jobs import job_payload  # local import avoids circular dependency
+
     return {
         "config": {
             "origins": [label_of(code) for code in cfg.routes.origins],
@@ -106,6 +108,7 @@ def dashboard_payload() -> dict:
             code: city_of(code)
             for code in cfg.routes.origins + cfg.routes.destinations
         },
+        "latest_job": job_payload(ScanJob.objects.first()) if ScanJob.objects.exists() else None,
     }
 
 

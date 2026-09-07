@@ -10,7 +10,15 @@ from .services.agent_summary import (
 )
 from .services.fx import DISPLAY_CURRENCIES, convert_amount, get_rate_table
 from .services.quick_search import quick_search
-from .services.scanner import dashboard_payload, history_payload, run_scan
+from .services.scan_jobs import (
+    create_scan_job,
+    job_payload,
+    request_cancel,
+    retry_failed_tasks,
+    start_scan_job,
+)
+from .services.scanner import dashboard_payload, history_payload
+from flights.models import ScanJob
 
 # Future: if AGENT_API_TOKEN is set in .env, require header X-Agent-Token here.
 # Plugins should send the same value via FLIGHT_WATCHER_API_TOKEN.
@@ -73,12 +81,40 @@ def dashboard(request):
 
 @api_view(["POST"])
 def scan(request):
-    summary = run_scan()
-    payload = dashboard_payload()
-    payload["scan"] = summary.model_dump(mode="json")
-    if wants_agent_format(request, request.data if isinstance(request.data, dict) else None):
-        payload["agent_summary"] = summarize_dashboard(payload)
-    return Response(payload)
+    """Start an async progressive scan job (date × route tasks)."""
+    body = request.data if isinstance(request.data, dict) else {}
+    attach = body.get("attach_bookings")
+    attach_bookings = True if attach is None else bool(attach)
+    job = create_scan_job(attach_bookings=attach_bookings)
+    start_scan_job(job.id)
+    return Response(job_payload(ScanJob.objects.get(pk=job.id)), status=202)
+
+
+@api_view(["GET"])
+def scan_job_detail(request, job_id: int):
+    try:
+        job = ScanJob.objects.get(pk=job_id)
+    except ScanJob.DoesNotExist:
+        return Response({"detail": "扫票任务不存在"}, status=404)
+    return Response(job_payload(job))
+
+
+@api_view(["POST"])
+def scan_job_cancel(request, job_id: int):
+    try:
+        job = request_cancel(job_id)
+    except ScanJob.DoesNotExist:
+        return Response({"detail": "扫票任务不存在"}, status=404)
+    return Response(job_payload(job))
+
+
+@api_view(["POST"])
+def scan_job_retry(request, job_id: int):
+    try:
+        job = retry_failed_tasks(job_id)
+    except ScanJob.DoesNotExist:
+        return Response({"detail": "扫票任务不存在"}, status=404)
+    return Response(job_payload(ScanJob.objects.get(pk=job.id)))
 
 
 @api_view(["GET"])

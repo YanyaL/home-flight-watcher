@@ -24,8 +24,23 @@ class MockProvider:
 
     def search(self, cfg: AppConfig) -> list[FlightOfferDTO]:
         dates = list(_daterange(cfg.routes.date_from, cfg.routes.date_to))
-        wanted_origins = set(cfg.routes.origins)
-        wanted_dests = set(cfg.routes.destinations)
+        offers: list[FlightOfferDTO] = []
+        for day in dates:
+            for origin in cfg.routes.origins:
+                for dest in cfg.routes.destinations:
+                    offers.extend(self.search_day(cfg, origin, dest, day))
+        return offers
+
+    def search_day(
+        self,
+        cfg: AppConfig,
+        origin: str,
+        dest: str,
+        day: date,
+        client=None,  # noqa: ANN001 - parity with SerpAPI signature
+    ) -> list[FlightOfferDTO]:
+        wanted_origins = {origin.upper()}
+        wanted_dests = {dest.upper()}
         templates = [
             item
             for item in ITINERARIES
@@ -34,20 +49,16 @@ class MockProvider:
         if not templates:
             templates = [
                 {
-                    "origin": origin,
-                    "dest": dest,
+                    "origin": origin.upper(),
+                    "dest": dest.upper(),
                     "airlines": ["SQ", "SQ"],
                     "duration": 1100,
                     "hub": "SIN",
                 }
-                for origin in wanted_origins
-                for dest in wanted_dests
             ]
-        offers: list[FlightOfferDTO] = []
-        for day in dates:
-            for template in templates:
-                offers.append(_build_offer(template, day, cfg.traveler.currency))
-        return offers
+        return [
+            _build_offer(template, day, cfg.traveler.currency) for template in templates
+        ]
 
     def attach_booking_links(
         self,

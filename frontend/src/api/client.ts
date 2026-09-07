@@ -41,6 +41,43 @@ export interface CalendarCell {
   stops?: number | null
 }
 
+export interface ScanTaskStatus {
+  id: number
+  origin: string
+  dest: string
+  depart_date: string
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'cancelled' | string
+  offer_count: number
+  error_message: string
+  started_at?: string | null
+  finished_at?: string | null
+}
+
+export interface ScanJobStatus {
+  id: number
+  status: 'pending' | 'running' | 'completed' | 'cancelled' | 'failed' | string
+  provider: string
+  cancel_requested: boolean
+  attach_bookings: boolean
+  offer_count: number
+  error_message: string
+  created_at?: string | null
+  started_at?: string | null
+  finished_at?: string | null
+  snapshot_id?: number | null
+  progress: {
+    total: number
+    done: number
+    percent: number
+    pending: number
+    running: number
+    succeeded: number
+    failed: number
+    cancelled: number
+  }
+  tasks: ScanTaskStatus[]
+}
+
 export interface DashboardData {
   config: {
     origins: string[]
@@ -70,6 +107,7 @@ export interface DashboardData {
     offer_id?: string | null
     price?: number | null
   }>
+  latest_job?: ScanJobStatus | null
 }
 
 export interface QuickSearchRequest {
@@ -116,10 +154,34 @@ export async function fetchDashboard(): Promise<DashboardData> {
   return res.json()
 }
 
-export async function triggerScan(): Promise<DashboardData> {
+export async function startScanJob(): Promise<ScanJobStatus> {
   const res = await fetch('/api/scan', { method: 'POST' })
-  if (!res.ok) throw new Error(`scan ${res.status}`)
-  return res.json()
+  const payload = await res.json().catch(() => ({}))
+  if (!res.ok && res.status !== 202) {
+    throw new Error(payload.detail || `scan ${res.status}`)
+  }
+  return payload
+}
+
+export async function fetchScanJob(jobId: number): Promise<ScanJobStatus> {
+  const res = await fetch(`/api/scan/${jobId}`)
+  const payload = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(payload.detail || `scan ${res.status}`)
+  return payload
+}
+
+export async function cancelScanJob(jobId: number): Promise<ScanJobStatus> {
+  const res = await fetch(`/api/scan/${jobId}/cancel`, { method: 'POST' })
+  const payload = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(payload.detail || `cancel ${res.status}`)
+  return payload
+}
+
+export async function retryFailedScanTasks(jobId: number): Promise<ScanJobStatus> {
+  const res = await fetch(`/api/scan/${jobId}/retry`, { method: 'POST' })
+  const payload = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(payload.detail || `retry ${res.status}`)
+  return payload
 }
 
 export async function runQuickSearch(body: QuickSearchRequest): Promise<QuickSearchResult> {

@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import {
+  cancelScanJob,
   fetchDashboard,
   fetchFxRates,
+  fetchScanJob,
+  retryFailedScanTasks,
   runQuickSearch,
-  triggerScan,
+  startScanJob,
   type DashboardData,
   type FlightOffer,
   type FxRates,
   type QuickSearchResult,
+  type ScanJobStatus,
 } from './api/client'
 import {
   FALLBACK_CURRENCIES,
@@ -39,12 +43,96 @@ const quickResult = ref<QuickSearchResult | null>(null)
 const fx = ref<FxRates | null>(null)
 const fxError = ref('')
 const displayCurrency = ref(loadSavedCurrency('AUD'))
+const scanJob = ref<ScanJobStatus | null>(null)
+let scanPollTimer: number | null = null
 
 const currencyOptions = computed(() => fx.value?.currencies?.length
   ? fx.value.currencies
   : FALLBACK_CURRENCIES)
 
+const scanRunning = computed(() =>
+  !!scanJob.value && ['pending', 'running'].includes(scanJob.value.status),
+)
+
 watch(displayCurrency, (code) => saveCurrency(code))
+
+function stopScanPoll() {
+  if (scanPollTimer != null) {
+    window.clearInterval(scanPollTimer)
+    scanPollTimer = null
+  }
+}
+
+function isTerminalScan(status: string) {
+  return ['completed', 'cancelled', 'failed'].includes(status)
+}
+
+async function refreshScanJob(jobId: number) {
+  scanJob.value = await fetchScanJob(jobId)
+  if (isTerminalScan(scanJob.value.status)) {
+    stopScanPoll()
+    loading.value = false
+    await load()
+  }
+}
+
+function startScanPoll(jobId: number) {
+  stopScanPoll()
+  scanPollTimer = window.setInterval(() => {
+    refreshScanJob(jobId).catch((err) => {
+      error.value = err instanceof Error ? err.message : String(err)
+      stopScanPoll()
+      loading.value = false
+    })
+  }, 1200)
+}
+
+async function scanNow() {
+  loading.value = true
+  error.value = ''
+  try {
+    scanJob.value = await startScanJob()
+    startScanPoll(scanJob.value.id)
+    await refreshScanJob(scanJob.value.id)
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err)
+    loading.value = false
+  }
+}
+
+async function cancelScan() {
+  if (!scanJob.value) return
+  error.value = ''
+  try {
+    scanJob.value = await cancelScanJob(scanJob.value.id)
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err)
+  }
+}
+
+async function retryFailed() {
+  if (!scanJob.value) return
+  loading.value = true
+  error.value = ''
+  try {
+    scanJob.value = await retryFailedScanTasks(scanJob.value.id)
+    startScanPoll(scanJob.value.id)
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err)
+    loading.value = false
+  }
+}
+
+function taskStatusLabel(status: string) {
+  const map: Record<string, string> = {
+    pending: '等待',
+    running: '进行中',
+    succeeded: '成功',
+    failed: '失败',
+    cancelled: '取消',
+  }
+  return map[status] || status
+}
 
 function money(
   amount: number | null | undefined,
@@ -69,20 +157,15 @@ async function load() {
   error.value = ''
   try {
     data.value = await fetchDashboard()
+    if (data.value.latest_job && !scanJob.value) {
+      scanJob.value = data.value.latest_job
+      if (['pending', 'running'].includes(data.value.latest_job.status)) {
+        loading.value = true
+        startScanPoll(data.value.latest_job.id)
+      }
+    }
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
-  }
-}
-
-async function scanNow() {
-  loading.value = true
-  error.value = ''
-  try {
-    data.value = await triggerScan()
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : String(err)
-  } finally {
-    loading.value = false
   }
 }
 
@@ -340,10 +423,57 @@ onMounted(async () => {
             {{ fmtTime(data.snapshot?.scanned_at) }} · {{ data.config.provider }} ·
             {{ data.snapshot?.offer_count ?? 0 }} 条
           </p>
-          <button type="button" :disabled="loading" @click="scanNow">
-            {{ loading ? '扫描中…' : '立刻扫票' }}
-          </button>
+          <div class="monitor-actions">
+            <button
+              v-if="scanRunning"
+              type="button"
+              class="chip"
+              @click="cancelScan"
+            >
+              取消扫票
+            </button>
+            <button
+              v-if="scanJob && scanJob.progress.failed > 0 && !scanRunning"
+              type="button"
+              class="chip"
+              @click="retryFailed"
+            >
+              重试失败（{{ scanJob.progress.failed }}）
+            </button>
+            <button type="button" :disabled="loading || scanRunning" @click="scanNow">
+              {{ scanRunning ? '扫描中…' : '立刻扫票' }}
+            </button>
+          </div>
         </div>
+
+        <section v-if="scanJob" class="panel scan-progress">
+          <div class="panel-head">
+            <div>
+              <h2>扫票进度 #{{ scanJob.id }}</h2>
+              <p>
+                {{ scanJob.status }} · {{ scanJob.progress.done }}/{{ scanJob.progress.total }}
+                （成功 {{ scanJob.progress.succeeded }} / 失败 {{ scanJob.progress.failed }}）
+                <template v-if="scanJob.error_message"> · {{ scanJob.error_message }}</template>
+              </p>
+            </div>
+            <strong>{{ scanJob.progress.percent }}%</strong>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" :style="{ width: `${scanJob.progress.percent}%` }" />
+          </div>
+          <div class="task-list">
+            <div
+              v-for="task in scanJob.tasks"
+              :key="task.id"
+              class="task-row"
+              :class="task.status"
+            >
+              <span>{{ task.origin }}→{{ task.dest }} {{ task.depart_date }}</span>
+              <span>{{ taskStatusLabel(task.status) }} · {{ task.offer_count }} 条</span>
+              <span v-if="task.error_message" class="error">{{ task.error_message }}</span>
+            </div>
+          </div>
+        </section>
 
         <p v-if="error" class="error">{{ error }}</p>
 
