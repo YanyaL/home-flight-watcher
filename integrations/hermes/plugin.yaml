@@ -1,0 +1,13 @@
+name: home-flight-watcher
+version: 0.1.0
+description: Query return flights via local home-flight-watcher Django API (quick search + monitor status).
+provides_tools:
+  - flight_quick_search
+  - flight_scan_status
+python_dependencies:
+  - "urllib3>=2.0,<3"
+config_schema:
+  api_base:
+    type: str
+    default: "http://127.0.0.1:8000"
+    description: "Django API base URL (override with FLIGHT_WATCHER_API_BASE)"

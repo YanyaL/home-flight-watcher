@@ -1,0 +1,48 @@
+# 回国机票监测配置。改这里就能换出发地、日期和预算。
+
+traveler:
+  currency: AUD
+  cabin: ECONOMY
+  adults: 1
+  budget: 1200
+
+routes:
+  # 先盯一条：布里斯班 → 上海浦东（省 SerpAPI 免费额度）
+  origins:
+    - BNE
+  destinations:
+    - PVG
+  date_from: "2026-10-20"
+  date_to: "2026-11-20"
+  trip_type: one_way
+
+filters:
+  # 0=只要直飞；1=直飞 + 转机一次（含低价联程）；2=也收两停
+  max_stops: 1
+  # 澳中 1 停常会到 20–30 小时，略放宽以免把便宜转机票滤掉
+  max_duration_hours: 32
+  preferred_airlines:
+    - QF
+    - CZ
+    - CA
+    - MU
+    - SQ
+    - KE
+    - CX
+  banned_airlines: []
+
+watcher:
+  interval_minutes: 720
+  alert_on_drop_percent: 8
+  # SerpAPI 免费约 100 次/月。BNE→PVG、步长 7 天 ≈ 5 次/轮。
+  # 一天扫 2 次 ≈ 10 次/天，免费额度大约能撑 10 天；想撑整月可改成一天 1 次，或步长 10。
+  serpapi_date_step_days: 7
+  # 每次扫票后，只给性价比前 N 条拉航司/代理购买链接（省额度）
+  booking_link_limit: 8
+
+scoring:
+  # 更看重低价，转机一次仍可进「合适」榜，不会只剩直飞
+  price: 0.55
+  duration: 0.20
+  stops: 0.15
+  convenience: 0.10

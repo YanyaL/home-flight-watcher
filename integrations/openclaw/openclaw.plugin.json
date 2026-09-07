@@ -1,0 +1,21 @@
+{
+  "id": "home-flight-watcher",
+  "name": "Home Flight Watcher",
+  "description": "Quick flight search and monitor status via local Django API",
+  "contracts": {
+    "tools": ["flight_quick_search", "flight_scan_status"]
+  },
+  "activation": {
+    "onStartup": true
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "apiBase": {
+        "type": "string",
+        "description": "Django API base URL (default http://127.0.0.1:8000 or FLIGHT_WATCHER_API_BASE)"
+      }
+    }
+  }
+}
