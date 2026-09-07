@@ -1,8 +1,24 @@
 # 回国机票雷达 · Home Flight Watcher
 
-面向 **留学生、旅游出行者** 等需要订国际机票的人：用真实澳区报价快速找出「最便宜直飞 + 最便宜转机」，给出航司/代理购买链接；支持 **ECB 参考汇率多币种显示**；监测扫票按「日期×航线」拆任务，**可看进度、取消、只重试失败天**。同一套 API 既能跑网页，也能挂到 Hermes / OpenClaw。
+面向 **留学生、旅游出行者** 等需要订国际机票的人。核心能力一句话概括：
+
+- **快捷查询**：最便宜直飞 1 班 + 转机 TOP3（可调中转次数）+ 购买链接  
+- **监测看板**：按「日期×航线」异步扫票，进度条 / 取消 / 失败重试  
+- **多币种显示**：ECB 参考汇率（Frankfurter），AUD↔CNY/USD/EUR…  
+- **Vibe 质量门禁**：夯 GOATED · 人上人 BUILT DIFFERENT · NPC · 拉完了 COOKED  
+- **双入口**：Vue 网页 + Hermes / OpenClaw 插件，共用同一 Django API  
 
 > 示例航线：布里斯班（BNE）→ 上海浦东（PVG）；出发地、目的地、日期都可在配置或快捷查询里改成任意航线。
+
+### English
+
+A return-flight radar for **students and travelers**. Feature pack:
+
+- **Quick search**: cheapest nonstop + top connecting fares, with airline/OTA links  
+- **Monitor board**: progressive day×route scans with progress / cancel / retry-failed  
+- **Multi-currency UI**: ECB reference rates via Frankfurter  
+- **Vibe quality gate**: **GOATED / BUILT DIFFERENT / NPC ENERGY / COOKED**  
+- **Dual entry**: Vue web + Hermes / OpenClaw plugins on one Django API  
 
 ## 为什么做这个
 
@@ -12,10 +28,21 @@
 2. **市场与货币要对齐** —— 人身在澳洲购票时，用澳区市场拿真实 AUD 标价更靠谱；同时很多人习惯用人民币/美元心里换算，所以支持一键切换显示货币（ECB 参考汇率，保留原价对照）。
 3. **要能持续盯，而不只是查一次** —— 寒暑假、节假日窗口、考试周前后或临时改签，价格天天变；需要日历式监测、降价提醒。长扫票不能黑盒干等，所以按天拆任务，失败可单独重试，避免整轮重跑烧额度。
 4. **入口要适配真实使用习惯** —— 有人想打开网页点一点；也有人已经在用 Hermes / OpenClaw 这类个人助手，希望直接说「帮我查 12 月 18 号 BNE 到 PVG」。业务逻辑只应写一次，网页和插件都消费同一套后端。
+5. **结果要敢说话** —— 别用干巴巴的 “warning/error”。四档 vibe：夯（GOATED）、人上人（BUILT DIFFERENT）、NPC、拉完了（COOKED），该冲的冲，该停的停。
 
 所以本项目把「快捷查询」做成一等公民业务（直飞最便宜 1 班 + 转机 TOP3，可调中转次数），把「监测看板」做成可扫票存库打分、带进度反馈的后台能力，并把 SerpAPI / Google Flights 细节关在服务端 —— **密钥不进插件、不进前端**。
 
 它也适合作为全栈作品集项目：Django + DRF + Vue3 + 异步任务进度 + 真实第三方 API + 智能体适配层，一条完整链路。
+
+### Why this exists (EN)
+
+Booking flights isn’t “just open Google Flights”:
+
+1. People ask the same narrow question every time — cheapest nonstop, else top 1-stop deals with links.
+2. If you’re buying in Australia, AU-market AUD quotes beat fuzzy FX hallucinations; still, folks think in CNY/USD, so display conversion matters.
+3. Prices move through exam weeks and holiday windows — monitoring needs progress, not a black-box wait, and failed days should retry without burning the whole quota.
+4. Same business core for web and agent plugins.
+5. Soft corporate labels are mid. We ship slang tiers so the product actually tells you when a fare is goated vs cooked.
 
 ## 功能一览
 
@@ -27,6 +54,16 @@
 | 双入口 | Vue 网页 + Hermes / OpenClaw 插件（HTTP 调同一 API） |
 | Agent 摘要 | `format=agent` 返回可直接念给用户的 `agent_summary` |
 | 货币切换 | 前端可切换显示货币；汇率来自 Frankfurter / 欧洲央行参考价 |
+| Vibe 质量门禁 | 夯 GOATED · 人上人 BUILT DIFFERENT · NPC · 拉完了 COOKED；价格/链接/转机异常会拖档 |
+
+### Vibe tiers
+
+| 中文 | English slang | 大致含义 |
+|------|---------------|----------|
+| 夯 | **GOATED** | 干净好价、可冲 |
+| 人上人 | **BUILT DIFFERENT** | 稳、体面、不丢人 |
+| NPC | **NPC ENERGY** | 能飞，但毫无主场光环 |
+| 拉完了 | **COOKED** | 数据不对劲或体验崩了，先别付款 |
 
 ## 架构
 
@@ -97,7 +134,7 @@ FLIGHT_WATCHER_API_BASE=http://127.0.0.1:8000
 | `flight_quick_search` | `POST /api/quick-search?format=agent` |
 | `flight_scan_status` | `GET /api/dashboard?format=agent` |
 
-`POST /api/scan` 不挂到插件（耗额度、偏运维），请在网页或 `python manage.py scan` 触发。
+`POST /api/scan` 不挂到插件默认工具（耗额度、偏运维），请在网页或 `python manage.py scan` 触发。
 
 ## API 摘要
 

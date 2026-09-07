@@ -282,6 +282,79 @@ button:disabled { opacity: 0.55; cursor: wait; }
   color: var(--gold-2);
 }
 .badge.good { background: rgba(90, 216, 164, 0.14); color: var(--good); }
+.badge.warn {
+  background: rgba(255, 176, 92, 0.16);
+  color: #ffc078;
+}
+
+.quality-banner {
+  margin: 14px 0;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 176, 92, 0.35);
+  background: rgba(255, 176, 92, 0.08);
+  color: #ffd7a8;
+  font-size: 13px;
+}
+.quality-banner.danger {
+  border-color: rgba(255, 143, 143, 0.4);
+  background: rgba(255, 143, 143, 0.08);
+  color: #ffc0c0;
+}
+.quality-banner ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+.quality-banner li { margin: 2px 0; }
+
+.vibe-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin: 8px 0 0;
+  color: inherit;
+  opacity: 0.92;
+}
+
+.vibe-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+}
+.vibe-pill span {
+  font-weight: 600;
+  font-size: 11px;
+  opacity: 0.85;
+  letter-spacing: 0.04em;
+}
+.vibe-pill.hang {
+  background: rgba(90, 216, 164, 0.18);
+  color: #7dffc4;
+  border-color: rgba(90, 216, 164, 0.35);
+}
+.vibe-pill.ren_shang_ren {
+  background: rgba(232, 184, 109, 0.18);
+  color: var(--gold-2);
+  border-color: rgba(232, 184, 109, 0.35);
+}
+.vibe-pill.npc {
+  background: rgba(154, 166, 184, 0.16);
+  color: #c5cedd;
+  border-color: rgba(154, 166, 184, 0.28);
+}
+.vibe-pill.cooked {
+  background: rgba(255, 120, 120, 0.16);
+  color: #ff9d9d;
+  border-color: rgba(255, 120, 120, 0.35);
+}
+.vibe-blurb { max-width: 42ch; }
 
 .links { display: grid; gap: 8px; justify-items: end; }
 .book {

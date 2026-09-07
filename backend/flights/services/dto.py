@@ -31,6 +31,13 @@ class FlightOfferDTO(BaseModel):
     booking_options: list[dict] = Field(default_factory=list)
     score: float = 0.0
     badges: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    quality: str = "ok"
+    vibe: str = "npc"
+    vibe_zh: str = "NPC"
+    vibe_en: str = "NPC ENERGY"
+    vibe_blurb: str = ""
+    vibe_blurb_en: str = ""
 
     @property
     def depart_at(self) -> datetime:

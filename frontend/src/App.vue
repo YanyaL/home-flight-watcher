@@ -134,6 +134,14 @@ function taskStatusLabel(status: string) {
   return map[status] || status
 }
 
+function offerWarnings(offer: FlightOffer | null | undefined) {
+  return offer?.warnings?.length ? offer.warnings : []
+}
+
+function vibeClass(offer: FlightOffer | null | undefined) {
+  return offer?.vibe || 'npc'
+}
+
 function money(
   amount: number | null | undefined,
   fromCurrency: string | undefined | null,
@@ -328,8 +336,25 @@ onMounted(async () => {
 
       <p v-if="quickError" class="error">{{ quickError }}</p>
 
-      <div v-if="quickResult" class="quick-results">
-        <p class="sub">
+      <div
+        v-if="quickResult?.quality && (quickResult.quality.warning_count || quickResult.quality.error_count || quickResult.quality.vibes)"
+        class="quality-banner"
+        :class="{ danger: (quickResult.quality.error_count || 0) > 0 }"
+      >
+        <strong>Vibe check / 质量门禁</strong>
+        <p v-if="quickResult.quality.vibes" class="vibe-legend">
+          <span>夯 GOATED ×{{ quickResult.quality.vibes.hang?.count || 0 }}</span>
+          <span>人上人 BUILT DIFFERENT ×{{ quickResult.quality.vibes.ren_shang_ren?.count || 0 }}</span>
+          <span>NPC ×{{ quickResult.quality.vibes.npc?.count || 0 }}</span>
+          <span>拉完了 COOKED ×{{ quickResult.quality.vibes.cooked?.count || 0 }}</span>
+        </p>
+        <ul v-if="quickResult.quality.errors?.length || quickResult.quality.warnings?.length">
+          <li v-for="(msg, i) in quickResult.quality.errors" :key="`e-${i}`">! {{ msg }}</li>
+          <li v-for="(msg, i) in quickResult.quality.warnings" :key="`w-${i}`">~ {{ msg }}</li>
+        </ul>
+      </div>
+
+      <div v-if="quickResult" class="quick-results">        <p class="sub">
           {{ quickResult.query.origin }} → {{ quickResult.query.dest }} ·
           {{ quickResult.query.depart_date }} · {{ quickResult.query.provider }} ·
           共 {{ quickResult.summary.total }} 条
@@ -340,6 +365,10 @@ onMounted(async () => {
         <h3>最便宜直飞</h3>
         <article v-if="quickResult.cheapest_direct" class="ticket">
           <div>
+            <div class="vibe-pill" :class="vibeClass(quickResult.cheapest_direct)">
+              {{ quickResult.cheapest_direct.vibe_zh || 'NPC' }}
+              <span>· {{ quickResult.cheapest_direct.vibe_en || 'NPC ENERGY' }}</span>
+            </div>
             <div class="price">
               {{ money(quickResult.cheapest_direct.price, quickResult.cheapest_direct.currency).primary }}
             </div>
@@ -347,11 +376,21 @@ onMounted(async () => {
               {{ money(quickResult.cheapest_direct.price, quickResult.cheapest_direct.currency).secondary }}
             </div>
             <div class="sub">直飞 · {{ durationLabel(quickResult.cheapest_direct.duration_min) }}</div>
+            <div v-if="quickResult.cheapest_direct.vibe_blurb" class="sub vibe-blurb">
+              {{ quickResult.cheapest_direct.vibe_blurb }}
+            </div>
           </div>
           <div>
             <p class="route">{{ quickResult.cheapest_direct.origin }} → {{ quickResult.cheapest_direct.dest }}</p>
             <div class="sub">
               {{ quickResult.cheapest_direct.segments.map((s) => s.flight_no).join('+') }}
+            </div>
+            <div v-if="offerWarnings(quickResult.cheapest_direct).length" class="badges">
+              <span
+                v-for="note in offerWarnings(quickResult.cheapest_direct)"
+                :key="note"
+                class="badge warn"
+              >{{ note }}</span>
             </div>
           </div>
           <div class="links">
@@ -380,16 +419,24 @@ onMounted(async () => {
             class="ticket"
           >
             <div>
+              <div class="vibe-pill" :class="vibeClass(offer)">
+                {{ offer.vibe_zh || 'NPC' }}
+                <span>· {{ offer.vibe_en || 'NPC ENERGY' }}</span>
+              </div>
               <div class="price">{{ money(offer.price, offer.currency).primary }}</div>
               <div v-if="money(offer.price, offer.currency).secondary" class="sub">
                 {{ money(offer.price, offer.currency).secondary }}
               </div>
               <div class="sub">{{ offer.stops }} 停 · {{ durationLabel(offer.duration_min) }}</div>
+              <div v-if="offer.vibe_blurb" class="sub vibe-blurb">{{ offer.vibe_blurb }}</div>
             </div>
             <div>
               <p class="route">{{ offer.origin }} → {{ offer.dest }}</p>
               <div class="sub">
                 经 {{ viaLabel(offer) }} · {{ offer.segments.map((s) => s.flight_no).join('+') }}
+              </div>
+              <div v-if="offerWarnings(offer).length" class="badges">
+                <span v-for="note in offerWarnings(offer)" :key="note" class="badge warn">{{ note }}</span>
               </div>
             </div>
             <div class="links">
@@ -477,8 +524,25 @@ onMounted(async () => {
 
         <p v-if="error" class="error">{{ error }}</p>
 
-        <section class="stats">
-          <article class="stat">
+        <div
+          v-if="data.quality && (data.quality.warning_count || data.quality.error_count || data.quality.vibes)"
+          class="quality-banner"
+          :class="{ danger: (data.quality.error_count || 0) > 0 }"
+        >
+          <strong>Vibe check / 质量门禁</strong>
+          <p v-if="data.quality.vibes" class="vibe-legend">
+            <span>夯 GOATED ×{{ data.quality.vibes.hang?.count || 0 }}</span>
+            <span>人上人 BUILT DIFFERENT ×{{ data.quality.vibes.ren_shang_ren?.count || 0 }}</span>
+            <span>NPC ×{{ data.quality.vibes.npc?.count || 0 }}</span>
+            <span>拉完了 COOKED ×{{ data.quality.vibes.cooked?.count || 0 }}</span>
+          </p>
+          <ul v-if="data.quality.errors?.length || data.quality.warnings?.length">
+            <li v-for="(msg, i) in data.quality.errors.slice(0, 4)" :key="`de-${i}`">! {{ msg }}</li>
+            <li v-for="(msg, i) in data.quality.warnings.slice(0, 6)" :key="`dw-${i}`">~ {{ msg }}</li>
+          </ul>
+        </div>
+
+        <section class="stats">          <article class="stat">
             <span>预算</span>
             <strong>{{ money(data.config.budget, data.config.currency).primary }}</strong>
             <div v-if="money(data.config.budget, data.config.currency).secondary" class="sub">
@@ -562,11 +626,16 @@ onMounted(async () => {
           <div v-if="!visibleOffers.length" class="empty-note">还没有航班。点右上角扫描，或换一天看看。</div>
           <article v-for="offer in visibleOffers" :key="offer.offer_id" class="ticket">
             <div>
+              <div class="vibe-pill" :class="vibeClass(offer)">
+                {{ offer.vibe_zh || 'NPC' }}
+                <span>· {{ offer.vibe_en || 'NPC ENERGY' }}</span>
+              </div>
               <div class="price">{{ money(offer.price, offer.currency).primary }}</div>
               <div v-if="money(offer.price, offer.currency).secondary" class="sub">
                 {{ money(offer.price, offer.currency).secondary }}
               </div>
               <div class="sub">得分 {{ offer.score }}</div>
+              <div v-if="offer.vibe_blurb" class="sub vibe-blurb">{{ offer.vibe_blurb }}</div>
             </div>
             <div>
               <p class="route">{{ offer.origin }} → {{ offer.dest }}</p>
@@ -581,6 +650,11 @@ onMounted(async () => {
                   class="badge"
                   :class="{ good: badge === '低于预算' || badge === '性价比高' }"
                 >{{ badge }}</span>
+                <span
+                  v-for="note in offerWarnings(offer)"
+                  :key="note"
+                  class="badge warn"
+                >{{ note }}</span>
               </div>
             </div>
             <div class="links">

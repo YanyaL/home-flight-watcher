@@ -32,6 +32,9 @@ def run_scan(
     if attach_bookings and hasattr(provider, "attach_booking_links"):
         shortlist = kept[: cfg.watcher.booking_link_limit]
         provider.attach_booking_links(shortlist, cfg, limit=len(shortlist))
+    from .quality import annotate_offers_quality
+
+    kept = annotate_offers_quality(kept, cfg)
     previous = previous_min_prices()
     alerts = detect_alerts(
         kept,
@@ -63,8 +66,13 @@ def dashboard_payload() -> dict:
         if snapshot
         else []
     )
+    from .quality import annotate_offers_quality, quality_summary
+
+    offers = annotate_offers_quality(offers, cfg)
+    usable = [o for o in offers if o.quality != "error"] or offers
     calendar = build_calendar(cfg, offers)
-    cheapest = min(offers, key=lambda item: item.price) if offers else None
+    cheapest = min(usable, key=lambda item: item.price) if usable else None
+    best = sorted(usable, key=lambda item: (-item.score, item.price))[0] if usable else None
     alerts = [
         {
             "created_at": item.created_at.isoformat(),
@@ -102,8 +110,9 @@ def dashboard_payload() -> dict:
         "calendar": [cell.model_dump() for cell in calendar],
         "offers": [offer.model_dump(mode="json") for offer in offers],
         "cheapest": cheapest.model_dump(mode="json") if cheapest else None,
-        "best": offers[0].model_dump(mode="json") if offers else None,
+        "best": best.model_dump(mode="json") if best else None,
         "alerts": alerts,
+        "quality": quality_summary(offers),
         "cities": {
             code: city_of(code)
             for code in cfg.routes.origins + cfg.routes.destinations

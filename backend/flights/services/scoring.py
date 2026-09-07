@@ -63,7 +63,8 @@ def score_offers(offers: list[FlightOfferDTO], cfg: AppConfig) -> list[FlightOff
             1,
         )
         offer.badges = _badges(offer, cfg, min_price)
-    return sorted(offers, key=lambda item: (-item.score, item.price))
+    scored = sorted(offers, key=lambda item: (-item.score, item.price))
+    return scored
 
 
 def _badges(offer: FlightOfferDTO, cfg: AppConfig, cheapest: float) -> list[str]:

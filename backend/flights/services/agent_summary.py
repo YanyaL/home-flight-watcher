@@ -29,9 +29,16 @@ def _offer_line(offer: dict | None, currency: str | None = None) -> str:
         book = f"\n  购买: {options[0]['url']}"
     elif offer.get("booking_url"):
         book = f"\n  购买: {offer['booking_url']}"
+    warns = offer.get("warnings") or []
+    warn_txt = ""
+    if warns:
+        warn_txt = "\n  ⚠ " + "；".join(str(w) for w in warns[:2])
+    vibe = ""
+    if offer.get("vibe_zh") or offer.get("vibe_en"):
+        vibe = f" [{offer.get('vibe_zh', '')}/{offer.get('vibe_en', '')}]"
     return (
         f"{_money(offer.get('price'), cur)} · {stop_label} · "
-        f"{hours}h{mins:02d}m · {flights}{via}{book}"
+        f"{hours}h{mins:02d}m · {flights}{via}{vibe}{book}{warn_txt}"
     )
 
 
@@ -57,6 +64,26 @@ def summarize_quick_search(payload: dict) -> str:
             lines.append(f"  {i}. {_offer_line(offer, currency)}")
     elif int(q.get("max_stops") or 0) >= 1:
         lines.append("最便宜转机：无符合条件的航班")
+    quality = payload.get("quality") or {}
+    if quality.get("error_count") or quality.get("warning_count") or quality.get("vibes"):
+        lines.append("")
+        vibes = quality.get("vibes") or {}
+        if vibes:
+            parts = []
+            for key in ("hang", "ren_shang_ren", "npc", "cooked"):
+                row = vibes.get(key) or {}
+                if row.get("count"):
+                    parts.append(f"{row.get('zh')}/{row.get('en')}×{row.get('count')}")
+            if parts:
+                lines.append("Vibe check：" + " · ".join(parts))
+        lines.append(
+            f"质量门禁：error {quality.get('error_count', 0)} / "
+            f"warning {quality.get('warning_count', 0)}"
+        )
+        for msg in (quality.get("errors") or [])[:3]:
+            lines.append(f"  ! {msg}")
+        for msg in (quality.get("warnings") or [])[:4]:
+            lines.append(f"  ~ {msg}")
     return "\n".join(lines)
 
 
@@ -90,6 +117,25 @@ def summarize_dashboard(payload: dict) -> str:
         lines.append("最近告警：")
         for item in alerts[:3]:
             lines.append(f"  - {item.get('message', '')}")
+    quality = payload.get("quality") or {}
+    if quality.get("error_count") or quality.get("warning_count") or quality.get("vibes"):
+        vibes = quality.get("vibes") or {}
+        if vibes:
+            parts = []
+            for key in ("hang", "ren_shang_ren", "npc", "cooked"):
+                row = vibes.get(key) or {}
+                if row.get("count"):
+                    parts.append(f"{row.get('zh')}/{row.get('en')}×{row.get('count')}")
+            if parts:
+                lines.append("Vibe check：" + " · ".join(parts))
+        lines.append(
+            f"质量门禁：error {quality.get('error_count', 0)} / "
+            f"warning {quality.get('warning_count', 0)}"
+        )
+        for msg in (quality.get("errors") or [])[:2]:
+            lines.append(f"  ! {msg}")
+        for msg in (quality.get("warnings") or [])[:3]:
+            lines.append(f"  ~ {msg}")
     return "\n".join(lines)
 
 

@@ -63,7 +63,13 @@ def quick_search(
     if hasattr(provider, "attach_booking_links"):
         provider.attach_booking_links(shortlist, cfg, limit=len(shortlist))
 
-    return {
+    from .quality import annotate_offers_quality, quality_summary
+
+    annotate_offers_quality(shortlist, cfg)
+    # Keep full list lightly annotated for summary counts (no booking required).
+    annotate_offers_quality(offers, cfg)
+
+    payload = {
         "query": {
             "origin": origin,
             "dest": dest,
@@ -80,4 +86,6 @@ def quick_search(
         },
         "cheapest_direct": cheapest_direct.model_dump(mode="json") if cheapest_direct else None,
         "cheapest_connecting": [o.model_dump(mode="json") for o in cheapest_connecting],
+        "quality": quality_summary(shortlist),
     }
+    return payload

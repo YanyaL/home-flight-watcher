@@ -30,6 +30,22 @@ export interface FlightOffer {
   booking_options: BookingOption[]
   score: number
   badges: string[]
+  warnings?: string[]
+  quality?: 'ok' | 'warning' | 'error' | string
+  vibe?: 'hang' | 'ren_shang_ren' | 'npc' | 'cooked' | string
+  vibe_zh?: string
+  vibe_en?: string
+  vibe_blurb?: string
+  vibe_blurb_en?: string
+}
+
+export interface QualitySummary {
+  ok: boolean
+  warning_count: number
+  error_count: number
+  warnings: string[]
+  errors: string[]
+  vibes?: Record<string, { zh: string; en: string; count: number }>
 }
 
 export interface CalendarCell {
@@ -108,6 +124,7 @@ export interface DashboardData {
     price?: number | null
   }>
   latest_job?: ScanJobStatus | null
+  quality?: QualitySummary | null
 }
 
 export interface QuickSearchRequest {
@@ -136,6 +153,7 @@ export interface QuickSearchResult {
   }
   cheapest_direct: FlightOffer | null
   cheapest_connecting: FlightOffer[]
+  quality?: QualitySummary | null
 }
 
 export interface FxRates {

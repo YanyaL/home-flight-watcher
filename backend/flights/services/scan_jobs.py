@@ -262,6 +262,9 @@ def _finalize_job(
     if job.attach_bookings and hasattr(provider, "attach_booking_links") and kept:
         shortlist = kept[: cfg.watcher.booking_link_limit]
         provider.attach_booking_links(shortlist, cfg, limit=len(shortlist))
+    from .quality import annotate_offers_quality
+
+    kept = annotate_offers_quality(kept, cfg)
 
     previous = previous_min_prices()
     alerts = detect_alerts(

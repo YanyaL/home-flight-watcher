@@ -56,3 +56,18 @@
 ```
 
 支持：`AUD CNY USD EUR GBP HKD SGD JPY NZD CAD`。网页「显示货币」切换只改展示，不改变报价源货币。
+
+---
+
+## 质量门禁 / Vibe check
+
+返回前端 / agent 前会给每条报价打标，并落到四档 vibe：
+
+| 级别 | 中文 | English | 触发大致 |
+|------|------|---------|----------|
+| top | 夯 | **GOATED** | 干净好价、有购买链接、直飞/高分 |
+| solid | 人上人 | **BUILT DIFFERENT** | 稳、可冲，但不是封神 |
+| meh | NPC | **NPC ENERGY** | warning（无链接、转机离谱等） |
+| bad | 拉完了 | **COOKED** | error 或一堆 warning，先别付款 |
+
+响应里有 `quality` 汇总（含 `vibes` 计数）；`error` / `COOKED` 报价不会进入「最合适/最便宜」首选（仍会出现在列表里并标警告）。
