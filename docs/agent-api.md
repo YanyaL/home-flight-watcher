@@ -41,3 +41,18 @@
 - **关键出参**: `agent_summary`、`snapshot`、`best`、`cheapest`、`alerts`。
 
 `POST /api/scan` 不挂到插件（耗 SerpAPI 额度、偏运维）；请在网页或 `manage.py scan` 触发。
+
+---
+
+## 汇率（显示换算）
+
+数据源：[Frankfurter](https://www.frankfurter.app/)（欧洲央行 ECB 参考汇率），无需 API key。服务端缓存约 6 小时。
+
+- `GET /api/fx-rates` — EUR 为基准的汇率表 + 支持货币列表  
+- `POST /api/fx-convert` — 任意支持货币互转
+
+```json
+{ "amount": 1450, "from": "AUD", "to": "CNY" }
+```
+
+支持：`AUD CNY USD EUR GBP HKD SGD JPY NZD CAD`。网页「显示货币」切换只改展示，不改变报价源货币。

@@ -1,13 +1,21 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import {
   fetchDashboard,
+  fetchFxRates,
   runQuickSearch,
   triggerScan,
   type DashboardData,
   type FlightOffer,
+  type FxRates,
   type QuickSearchResult,
 } from './api/client'
+import {
+  FALLBACK_CURRENCIES,
+  formatMoney,
+  loadSavedCurrency,
+  saveCurrency,
+} from './utils/currency'
 
 type SortKey = 'score' | 'price' | 'duration'
 type TabKey = 'quick' | 'monitor'
@@ -27,6 +35,35 @@ const quickMaxStops = ref(1)
 const quickLoading = ref(false)
 const quickError = ref('')
 const quickResult = ref<QuickSearchResult | null>(null)
+
+const fx = ref<FxRates | null>(null)
+const fxError = ref('')
+const displayCurrency = ref(loadSavedCurrency('AUD'))
+
+const currencyOptions = computed(() => fx.value?.currencies?.length
+  ? fx.value.currencies
+  : FALLBACK_CURRENCIES)
+
+watch(displayCurrency, (code) => saveCurrency(code))
+
+function money(
+  amount: number | null | undefined,
+  fromCurrency: string | undefined | null,
+) {
+  return formatMoney(amount, fromCurrency || 'AUD', displayCurrency.value, fx.value)
+}
+
+async function loadFx() {
+  fxError.value = ''
+  try {
+    fx.value = await fetchFxRates()
+    if (!currencyOptions.value.includes(displayCurrency.value)) {
+      displayCurrency.value = 'AUD'
+    }
+  } catch (err) {
+    fxError.value = err instanceof Error ? err.message : String(err)
+  }
+}
 
 async function load() {
   error.value = ''
@@ -77,7 +114,11 @@ const visibleOffers = computed(() => {
     rows = rows.filter((item) => item.depart_date === selectedDate.value)
   }
   rows = [...rows].sort((a, b) => {
-    if (sort.value === 'price') return a.price - b.price
+    if (sort.value === 'price') {
+      const pa = money(a.price, a.currency).value ?? a.price
+      const pb = money(b.price, b.currency).value ?? b.price
+      return pa - pb
+    }
     if (sort.value === 'duration') return a.duration_min - b.duration_min
     return b.score - a.score
   })
@@ -105,7 +146,13 @@ function fmtTime(value?: string | null) {
 
 const priceBounds = computed(() => {
   const prices = (data.value?.calendar ?? [])
-    .map((cell) => cell.min_price)
+    .map((cell) => {
+      if (cell.min_price == null) return null
+      const from = data.value?.offers.find((o) => o.offer_id === cell.offer_id)?.currency
+        || data.value?.config.currency
+        || 'AUD'
+      return money(cell.min_price, from).value
+    })
     .filter((value): value is number => value != null)
   if (!prices.length) return { min: 0, max: 1 }
   return { min: Math.min(...prices), max: Math.max(...prices) }
@@ -113,8 +160,11 @@ const priceBounds = computed(() => {
 
 function dayStyle(minPrice: number | null) {
   if (minPrice == null) return undefined
+  const from = data.value?.config.currency || 'AUD'
+  const converted = money(minPrice, from).value
+  if (converted == null) return undefined
   const { min, max } = priceBounds.value
-  const t = (minPrice - min) / Math.max(max - min, 1)
+  const t = (converted - min) / Math.max(max - min, 1)
   return { background: `rgba(232, 184, 109, ${0.12 + (1 - t) * 0.45})` }
 }
 
@@ -127,7 +177,9 @@ function viaLabel(offer: FlightOffer) {
   return vias.length ? vias.join(' / ') : '直飞'
 }
 
-onMounted(load)
+onMounted(async () => {
+  await Promise.all([loadFx(), load()])
+})
 </script>
 
 <template>
@@ -137,17 +189,31 @@ onMounted(load)
         <p class="kicker">Return flight radar</p>
         <h1>回国机票雷达</h1>
       </div>
-      <div class="tabs">
-        <button type="button" class="chip" :class="{ active: tab === 'quick' }" @click="tab = 'quick'">快捷查询</button>
-        <button type="button" class="chip" :class="{ active: tab === 'monitor' }" @click="tab = 'monitor'">监测看板</button>
+      <div class="top-controls">
+        <label class="currency-switch">
+          显示货币
+          <select v-model="displayCurrency">
+            <option v-for="code in currencyOptions" :key="code" :value="code">{{ code }}</option>
+          </select>
+        </label>
+        <div class="tabs">
+          <button type="button" class="chip" :class="{ active: tab === 'quick' }" @click="tab = 'quick'">快捷查询</button>
+          <button type="button" class="chip" :class="{ active: tab === 'monitor' }" @click="tab = 'monitor'">监测看板</button>
+        </div>
       </div>
     </header>
+
+    <p v-if="fx" class="fx-note">
+      汇率 {{ fx.date }} · {{ fx.source }}
+      <template v-if="fxError"> · {{ fxError }}</template>
+    </p>
+    <p v-else-if="fxError" class="error">汇率加载失败：{{ fxError }}（暂按原币种显示）</p>
 
     <section v-if="tab === 'quick'" class="panel">
       <div class="panel-head">
         <div>
           <h2>快捷查询</h2>
-          <p>按出发/到达/日期查：最便宜直飞 1 班 + 转机最便宜前 3 班。</p>
+          <p>按出发/到达/日期查：最便宜直飞 1 班 + 转机最便宜前 3 班。价格可切换显示货币。</p>
         </div>
       </div>
 
@@ -192,8 +258,10 @@ onMounted(load)
         <article v-if="quickResult.cheapest_direct" class="ticket">
           <div>
             <div class="price">
-              {{ Math.round(quickResult.cheapest_direct.price) }}
-              <span class="sub">{{ quickResult.cheapest_direct.currency }}</span>
+              {{ money(quickResult.cheapest_direct.price, quickResult.cheapest_direct.currency).primary }}
+            </div>
+            <div v-if="money(quickResult.cheapest_direct.price, quickResult.cheapest_direct.currency).secondary" class="sub">
+              {{ money(quickResult.cheapest_direct.price, quickResult.cheapest_direct.currency).secondary }}
             </div>
             <div class="sub">直飞 · {{ durationLabel(quickResult.cheapest_direct.duration_min) }}</div>
           </div>
@@ -213,7 +281,9 @@ onMounted(load)
               rel="noreferrer"
             >
               {{ opt.airline ? '航司' : '渠道' }} · {{ opt.book_with }}
-              <template v-if="opt.price != null"> · {{ opt.price }}</template>
+              <template v-if="opt.price != null">
+                · {{ money(opt.price, quickResult.cheapest_direct.currency).primary }}
+              </template>
             </a>
           </div>
         </article>
@@ -227,9 +297,9 @@ onMounted(load)
             class="ticket"
           >
             <div>
-              <div class="price">
-                {{ Math.round(offer.price) }}
-                <span class="sub">{{ offer.currency }}</span>
+              <div class="price">{{ money(offer.price, offer.currency).primary }}</div>
+              <div v-if="money(offer.price, offer.currency).secondary" class="sub">
+                {{ money(offer.price, offer.currency).secondary }}
               </div>
               <div class="sub">{{ offer.stops }} 停 · {{ durationLabel(offer.duration_min) }}</div>
             </div>
@@ -249,7 +319,9 @@ onMounted(load)
                 rel="noreferrer"
               >
                 {{ opt.airline ? '航司' : '渠道' }} · {{ opt.book_with }}
-                <template v-if="opt.price != null"> · {{ opt.price }}</template>
+                <template v-if="opt.price != null">
+                  · {{ money(opt.price, offer.currency).primary }}
+                </template>
               </a>
             </div>
           </article>
@@ -278,7 +350,10 @@ onMounted(load)
         <section class="stats">
           <article class="stat">
             <span>预算</span>
-            <strong>{{ data.config.currency }} {{ data.config.budget }}</strong>
+            <strong>{{ money(data.config.budget, data.config.currency).primary }}</strong>
+            <div v-if="money(data.config.budget, data.config.currency).secondary" class="sub">
+              {{ money(data.config.budget, data.config.currency).secondary }}
+            </div>
           </article>
           <article class="stat">
             <span>日期</span>
@@ -286,12 +361,18 @@ onMounted(load)
           </article>
           <article class="stat">
             <span>最合适</span>
-            <strong v-if="data.best">{{ data.best.origin }}→{{ data.best.dest }} {{ Math.round(data.best.price) }}</strong>
+            <strong v-if="data.best">
+              {{ data.best.origin }}→{{ data.best.dest }}
+              {{ money(data.best.price, data.best.currency).primary }}
+            </strong>
             <strong v-else>暂无</strong>
           </article>
           <article class="stat">
             <span>最便宜</span>
-            <strong v-if="data.cheapest">{{ data.cheapest.origin }}→{{ data.cheapest.dest }} {{ Math.round(data.cheapest.price) }}</strong>
+            <strong v-if="data.cheapest">
+              {{ data.cheapest.origin }}→{{ data.cheapest.dest }}
+              {{ money(data.cheapest.price, data.cheapest.currency).primary }}
+            </strong>
             <strong v-else>暂无</strong>
           </article>
         </section>
@@ -306,7 +387,7 @@ onMounted(load)
           <div class="panel-head">
             <div>
               <h2>价格日历</h2>
-              <p>颜色越暖越便宜。点某一天可筛航班。</p>
+              <p>颜色越暖越便宜。点某一天可筛航班。金额按当前显示货币换算。</p>
             </div>
           </div>
           <div class="calendar">
@@ -321,7 +402,13 @@ onMounted(load)
               @click="cell.min_price != null && toggleDate(cell.date)"
             >
               <span>{{ cell.date.slice(8) }}<template v-if="cell.origin"> · {{ cell.origin }}→{{ cell.dest }}</template></span>
-              <b>{{ cell.min_price == null ? '—' : Math.round(cell.min_price) }}</b>
+              <b>
+                {{
+                  cell.min_price == null
+                    ? '—'
+                    : Math.round(money(cell.min_price, data.config.currency).value ?? cell.min_price)
+                }}
+              </b>
             </button>
           </div>
         </section>
@@ -345,7 +432,10 @@ onMounted(load)
           <div v-if="!visibleOffers.length" class="empty-note">还没有航班。点右上角扫描，或换一天看看。</div>
           <article v-for="offer in visibleOffers" :key="offer.offer_id" class="ticket">
             <div>
-              <div class="price">{{ Math.round(offer.price) }} <span class="sub">{{ offer.currency }}</span></div>
+              <div class="price">{{ money(offer.price, offer.currency).primary }}</div>
+              <div v-if="money(offer.price, offer.currency).secondary" class="sub">
+                {{ money(offer.price, offer.currency).secondary }}
+              </div>
               <div class="sub">得分 {{ offer.score }}</div>
             </div>
             <div>
@@ -373,7 +463,9 @@ onMounted(load)
                 rel="noreferrer"
               >
                 {{ opt.airline ? '航司' : '渠道' }} · {{ opt.book_with }}
-                <template v-if="opt.price != null"> · {{ opt.price }}</template>
+                <template v-if="opt.price != null">
+                  · {{ money(opt.price, offer.currency).primary }}
+                </template>
               </a>
             </div>
           </article>

@@ -100,6 +100,16 @@ export interface QuickSearchResult {
   cheapest_connecting: FlightOffer[]
 }
 
+export interface FxRates {
+  base: string
+  date: string
+  source: string
+  provider_url?: string
+  currencies: string[]
+  rates: Record<string, number>
+  fetched_at?: string
+}
+
 export async function fetchDashboard(): Promise<DashboardData> {
   const res = await fetch('/api/dashboard')
   if (!res.ok) throw new Error(`dashboard ${res.status}`)
@@ -121,6 +131,16 @@ export async function runQuickSearch(body: QuickSearchRequest): Promise<QuickSea
   const payload = await res.json().catch(() => ({}))
   if (!res.ok) {
     throw new Error(payload.detail || `quick-search ${res.status}`)
+  }
+  return payload
+}
+
+export async function fetchFxRates(refresh = false): Promise<FxRates> {
+  const q = refresh ? '?refresh=1' : ''
+  const res = await fetch(`/api/fx-rates${q}`)
+  const payload = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(payload.detail || `fx-rates ${res.status}`)
   }
   return payload
 }

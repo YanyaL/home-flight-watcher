@@ -37,6 +37,36 @@ html, body, #app {
   padding-bottom: 20px;
 }
 
+.top-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.currency-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.currency-switch select {
+  background: #10182a;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--ink);
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+.fx-note {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .kicker {
   margin: 0 0 6px;
   letter-spacing: 0.16em;
@@ -222,6 +252,7 @@ button:disabled { opacity: 0.55; cursor: wait; }
   .stats, .calendar { grid-template-columns: 1fr 1fr; }
   .ticket { grid-template-columns: 1fr; }
   .topbar { flex-direction: column; align-items: start; }
+  .top-controls { align-items: flex-start; }
   .meta { text-align: left; }
   .links { justify-items: start; }
   .quick-form { grid-template-columns: 1fr 1fr; }

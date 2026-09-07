@@ -8,11 +8,59 @@ from .services.agent_summary import (
     summarize_quick_search,
     wants_agent_format,
 )
+from .services.fx import DISPLAY_CURRENCIES, convert_amount, get_rate_table
 from .services.quick_search import quick_search
 from .services.scanner import dashboard_payload, history_payload, run_scan
 
 # Future: if AGENT_API_TOKEN is set in .env, require header X-Agent-Token here.
 # Plugins should send the same value via FLIGHT_WATCHER_API_TOKEN.
+
+
+@api_view(["GET"])
+def fx_rates(request):
+    """ECB reference rates via Frankfurter (EUR pivot)."""
+    try:
+        force = str(request.query_params.get("refresh") or "").lower() in {"1", "true", "yes"}
+        payload = get_rate_table(force_refresh=force)
+    except Exception as exc:  # noqa: BLE001
+        return Response({"detail": f"汇率拉取失败: {exc}"}, status=502)
+    return Response(payload)
+
+
+@api_view(["POST"])
+def fx_convert(request):
+    """Convert an amount from any supported currency to another."""
+    body = request.data or {}
+    try:
+        amount = float(body.get("amount"))
+    except (TypeError, ValueError):
+        return Response({"detail": "amount 必须是数字"}, status=400)
+    from_currency = str(body.get("from") or body.get("from_currency") or "").strip().upper()
+    to_currency = str(body.get("to") or body.get("to_currency") or "").strip().upper()
+    if not from_currency or not to_currency:
+        return Response({"detail": "需要 from / to 货币代码，如 AUD → CNY"}, status=400)
+    if from_currency not in DISPLAY_CURRENCIES or to_currency not in DISPLAY_CURRENCIES:
+        return Response(
+            {"detail": f"请使用支持的货币之一: {', '.join(DISPLAY_CURRENCIES)}"},
+            status=400,
+        )
+    try:
+        table = get_rate_table()
+        converted = convert_amount(amount, from_currency, to_currency, table)
+    except ValueError as exc:
+        return Response({"detail": str(exc)}, status=400)
+    except Exception as exc:  # noqa: BLE001
+        return Response({"detail": f"汇率转换失败: {exc}"}, status=502)
+    return Response(
+        {
+            "amount": amount,
+            "from": from_currency,
+            "to": to_currency,
+            "converted": round(converted, 2),
+            "rate_date": table.get("date"),
+            "source": table.get("source"),
+        }
+    )
 
 
 @api_view(["GET"])
